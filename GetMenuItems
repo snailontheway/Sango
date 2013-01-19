@@ -1,0 +1,105 @@
+import win32gui
+import win32con
+import win32process
+import win32gui_struct
+#获取指定进程Id的所有窗口句柄
+
+def GetHwndsForPid(pid):
+def callback(hwnd, hwnds):
+if not win32gui.IsWindowVisible(hwnd):
+return True
+if not win32gui.IsWindowEnabled(hwnd):
+
+return True
+
+  13        _, foundPid = win32process.GetWindowThreadProcessId(hwnd)
+
+  14        if foundPid == pid:
+
+  15          hwnds.append(hwnd)
+
+  16        return True
+
+  17      
+
+  18      hwnds = []
+
+  19      win32gui.EnumWindows(callback, hwnds)
+
+  20      return hwnds
+
+  21   
+
+  22    #返回menu的菜单列表
+
+  23    def GetMenuInfo(menuHwnd):
+
+  24      items = []
+
+  25      itemcount = win32gui.GetMenuItemCount(menuHwnd)
+
+  26      print itemcount
+
+  27      for pos in xrange(itemcount):
+
+  28        info, _, = win32gui_struct.EmptyMENUITEMINFO()
+
+  29        win32gui.GetMenuItemInfo(menuHwnd, pos, True, info)
+
+  30        _, _, _, _, _, _, _, text, _, = win32gui_struct.UnpackMENUITEMINFO(info)
+
+  31        print text
+
+  32        
+
+  33        if win32gui.GetMenuItemID(menuHwnd, pos) is -1:
+
+  34          item = {}
+
+  35          subMenu = win32gui.GetSubMenu(menuHwnd, pos)
+
+  36          item[text] = GetMenuInfo(subMenu)
+
+  37          items.append(item)
+
+  38        else:
+
+  39          items.append(text)
+
+  40      return items
+
+  41   
+
+  42    #返回进程内的menu List
+
+  43    def GetMenuItems(pid):
+
+  44      items = []
+
+  45      winList = GetHwndsForPid(pid)
+
+  46      print winList
+
+  47      for win in winList:
+
+  48        wtxt = win32gui.GetWindowText(win)
+
+  49        print 'window text %s' % wtxt
+
+  50        menuHwnd = win32gui.GetMenu(win)
+
+  51        items.append(GetMenuInfo(menuHwnd))
+
+  52      return items
+
+  53   
+
+  54    #test
+
+  55    if __name__ == '__main__':
+
+  56      items = GetMenuItems(3372)
+
+  57      print items
+
+  58       
