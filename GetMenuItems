@@ -1,105 +1,73 @@
-import win32gui
-import win32con
-import win32process
-import win32gui_struct
-#获取指定进程Id的所有窗口句柄
+from win32gui import EnumWindows
+from win32gui import GetMenu
+from win32gui import GetMenuItemCount
+from win32gui import GetMenuItemID
+from win32gui import GetMenuItemInfo
+from win32gui import GetSubMenu
+from win32gui import GetWindowText
+from win32gui import IsWindowEnabled
+from win32gui import IsWindowVisible
+from win32gui_struct import EmptyMENUITEMINFO
+from win32gui_struct import UnpackMENUITEMINFO
+from win32process import GetWindowThreadProcessId
+from pprint import pprint
+from numbers import Integral
+from os import path
 
-def GetHwndsForPid(pid):
-def callback(hwnd, hwnds):
-if not win32gui.IsWindowVisible(hwnd):
-return True
-if not win32gui.IsWindowEnabled(hwnd):
+#Get all window handles by specified process ID
+def FindWindowsByPID(pid):
+  
+  #The proc for EnumWindows()  
+  def enum_proc(win, win_list):
+    if IsWindowVisible(win) and IsWindowEnabled(win):
+        _, win_pid = GetWindowThreadProcessId(win)    
+        if win_pid == pid:
+          win_list.append(win)    
+    return True
 
-return True
+  windows = []
+  EnumWindows(enum_proc, windows)
+  print "The process {0} has {1} window(s)".format(pid, len(windows))
+  return windows
 
-  13        _, foundPid = win32process.GetWindowThreadProcessId(hwnd)
+#Get the structure of menu items
+def GetMenuStructure(menu):
+  items = {}
+  count = GetMenuItemCount(menu)
+  for pos in range(count):
+    info, _, = EmptyMENUITEMINFO()
+    GetMenuItemInfo(menu, pos, True, info)
+    _, _, miid, sub_menu, _, _, _, text, _, = UnpackMENUITEMINFO(info)
+    if text and miid:
+        items[text] = miid
+    if text and sub_menu:
+        item = GetMenuStructure(sub_menu)
+        items[text] = item
+  return items
 
-  14        if foundPid == pid:
+#Get the menu list from the main window(s) of specified process
+def GetMenuListByProcess(pid):
+  menu_list = {}
+  windows = FindWindowsByPID(pid)
+  for win in windows:
+    title = GetWindowText(win)
+    menu = GetMenu(win)
+    menu_info = GetMenuStructure(menu)
+    menu_list[title] = menu_info
+  return menu_list
 
-  15          hwnds.append(hwnd)
-
-  16        return True
-
-  17      
-
-  18      hwnds = []
-
-  19      win32gui.EnumWindows(callback, hwnds)
-
-  20      return hwnds
-
-  21   
-
-  22    #返回menu的菜单列表
-
-  23    def GetMenuInfo(menuHwnd):
-
-  24      items = []
-
-  25      itemcount = win32gui.GetMenuItemCount(menuHwnd)
-
-  26      print itemcount
-
-  27      for pos in xrange(itemcount):
-
-  28        info, _, = win32gui_struct.EmptyMENUITEMINFO()
-
-  29        win32gui.GetMenuItemInfo(menuHwnd, pos, True, info)
-
-  30        _, _, _, _, _, _, _, text, _, = win32gui_struct.UnpackMENUITEMINFO(info)
-
-  31        print text
-
-  32        
-
-  33        if win32gui.GetMenuItemID(menuHwnd, pos) is -1:
-
-  34          item = {}
-
-  35          subMenu = win32gui.GetSubMenu(menuHwnd, pos)
-
-  36          item[text] = GetMenuInfo(subMenu)
-
-  37          items.append(item)
-
-  38        else:
-
-  39          items.append(text)
-
-  40      return items
-
-  41   
-
-  42    #返回进程内的menu List
-
-  43    def GetMenuItems(pid):
-
-  44      items = []
-
-  45      winList = GetHwndsForPid(pid)
-
-  46      print winList
-
-  47      for win in winList:
-
-  48        wtxt = win32gui.GetWindowText(win)
-
-  49        print 'window text %s' % wtxt
-
-  50        menuHwnd = win32gui.GetMenu(win)
-
-  51        items.append(GetMenuInfo(menuHwnd))
-
-  52      return items
-
-  53   
-
-  54    #test
-
-  55    if __name__ == '__main__':
-
-  56      items = GetMenuItems(3372)
-
-  57      print items
-
-  58       
+def PrintMenuItemList(elem, prefix = ''):
+    if isinstance(elem, Integral):
+        print prefix,
+        print ":",
+        print elem
+    else:
+        for k in elem.keys():
+            PrintMenuItemList(elem[k], path.join(prefix, k))
+            
+if __name__ == '__main__':
+    pid = 4204
+    menus = GetMenuListByProcess(pid)
+    pprint(menus)
+    PrintMenuItemList(menus)
+  
